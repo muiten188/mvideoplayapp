@@ -308,7 +308,7 @@ export default class App extends Component {
     return (
       <View style={{ flex: 1, backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center' }}>
         <StatusBar hidden={true} />
-        <Button onPress={() => { this.setState({ modalShow: true }) }} style={{ position: 'absolute', top: 5, right: 5, opacity: 0.7, backgroundColor: "transparent" }}>
+        <Button onPress={() => { this.setState({ modalShow: true }) }} style={{ position: 'absolute', top: 5, right: 5, opacity: 0.7, zIndex: 99999, backgroundColor: "transparent" }}>
           <Icon name='md-menu' fontSize={24} />
         </Button>
         <ModalLcd show={modalShow} onOK={this.onModalOk.bind(this)}></ModalLcd>
