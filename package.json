@@ -11,10 +11,11 @@
     "react": "16.2.0",
     "react-native": "^0.52.2",
     "react-native-easy-grid": "^0.1.17",
+    "react-native-keep-awake": "^3.0.1",
     "react-native-modal": "^5.2.0",
     "react-native-mqtt": "0.1.0-beta4",
     "react-native-table-component": "^1.1.3",
-    "react-native-vector-icons": "^4.4.2",
+    "react-native-vector-icons": "^4.5.0",
     "react-native-video": "^2.0.0"
   },
   "devDependencies": {

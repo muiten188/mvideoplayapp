@@ -15,16 +15,20 @@ import {
   ListItem,
   AsyncStorage,
   Alert,
-  StatusBar
+  StatusBar,
+  Image
 } from 'react-native';
-// import Icon from "react-native-vector-icons";
-import { Picker, Item, Label, Spinner, Badge, Button, Icon } from 'native-base';
+//import Icon from 'react-native-vector-icons/EvilIcons';
+import { Picker, Item, Label, Spinner, Badge, Button } from 'native-base';
 import FListItem from './listItem';
 import MyDate from './date';
 import { Col, Row, Grid } from "react-native-easy-grid";
 import Modal from "react-native-modal";
 import ModalLcd from "./modal";
 import Video from "react-native-video";
+import KeepAwake from 'react-native-keep-awake';
+const currentPlayingUrl = null;
+const currentPlayingIndex = false;
 const mqtt = require('react-native-mqtt');
 let currentSlice = 0;
 let endSilce = 5;
@@ -34,6 +38,7 @@ let arrMachine = [];
 let subInterVal = [];
 const mqttClient = null;
 const newMesTimeout = null;
+const errorTimeout = null;
 function guid() {
   function s4() {
     return Math.floor((1 + Math.random()) * 0x10000)
@@ -56,6 +61,9 @@ export default class App extends Component {
       newMessage: false,
       change: 0,
       arrLCD: [],
+      arrayUrl: [],
+      currentUrl: null,
+      errorUrl: null
     }
 
   }
@@ -63,14 +71,14 @@ export default class App extends Component {
   componentDidMount() {
     let arrLCD = [];
     let arrSegment = [];
-    this.createClient("LCD001");
-    // this.getLCD_Segment()
+
+    this.getLCD_Segment();
   }
 
   async getLCD_Segment() {
     let arrLCD = [];
     try {
-      let responseLCD = await fetch("http://10.168.85.20/manuafactory/api/devices/all", {
+      let responseLCD = await fetch("http://10.168.85.20:8080/cms-web-api/device/load-all", {
         method: 'GET',
         headers: new Headers({
           'Content-Type': 'application/json'
@@ -113,6 +121,8 @@ export default class App extends Component {
         this.setState({ arrLCD: arrLCD, lcd: arrLCD[0].deviceTopic });
         this.createClient(arrLCD[0].deviceTopic);
       })
+      //this.createClient("LCD001");
+      // this.getLCD_Segment()
     }
   }
 
@@ -157,6 +167,20 @@ export default class App extends Component {
   onMessageMqtt(msg) {
     AsyncStorage.setItem("@tableData", msg.data);
     this.bindInterVal(msg);
+    const msgObj = JSON.parse(msg.data);
+    debugger;
+    if (msgObj && msgObj.resources && msgObj.resources.length > 0) {
+      let arrayUrl = msgObj.resources;
+      this.setState({ arrayUrl: arrayUrl, newMessage: true, currentUrl: arrayUrl[0] })
+      if (newMesTimeout) {
+        clearTimeout(newMesTimeout);
+      }
+      newMesTimeout = setTimeout(() => {
+        this.setState({
+          newMessage: false
+        })
+      }, 13000);
+    }
 
   }
 
@@ -291,51 +315,110 @@ export default class App extends Component {
   }
 
   onModalOk(lcd) {
-    AsyncStorage.setItem('@LCD', lcd);
     this.setState({ modalShow: false })
-    let req = { request: { topic: lcd, clientId: clientId } };
-    if (!mqttClient) {
-      this.createClient(lcd);
-    }
-    else {
-      mqttClient.subscribe('tcp/incoming/' + lcd, 2);
-      mqttClient.publish('tcp/outgoing/request', JSON.stringify(req), 2, false);
+    if (lcd) {
+      AsyncStorage.setItem('@LCD', lcd);
+      let req = { request: { topic: lcd, clientId: clientId } };
+      if (!mqttClient) {
+        this.createClient(lcd);
+      }
+      else {
+        mqttClient.subscribe('tcp/incoming/' + lcd, 2);
+        mqttClient.publish('tcp/outgoing/request', JSON.stringify(req), 2, false);
+      }
     }
   }
 
+  onEnd(val) {
+    const { currentUrl, arrayUrl } = this.state;
+    let index = arrayUrl.indexOf(currentUrl);
+    let newIndex = 0;
+    let newUrl = null;
+    debugger;
+    if (index != arrayUrl.length) {
+      newIndex = newIndex + 1;
+    }
+    newUrl = arrayUrl[newIndex];
+    this.setState({ currentUrl: newUrl })
+  }
+
+  videoError(e, b, c, d) {
+    const { currentUrl, arrayUrl } = this.state;
+    let index = arrayUrl.indexOf(currentUrl);
+    let newIndex = 0;
+    let newUrl = null;
+    if (index != arrayUrl.length) {
+      newIndex = newIndex + 1;
+    }
+    newUrl = arrayUrl[newIndex];
+    this.setState({ currentUrl: newUrl, errorUrl: currentUrl })
+    if (errorTimeout) {
+      clearTimeout(errorTimeout);
+    }
+    errorTimeout = setTimeout(() => {
+      this.setState({
+        errorUrl: null
+      })
+    }, 6000);
+  }
   render() {
-    const { newMessage, arrLCD, modalShow } = this.state;
+    const { newMessage, arrLCD, modalShow, currentUrl, errorUrl } = this.state;
+    let paused = false;
+    let temcurrentUrl = currentUrl;
+    // if (currentUrl != currentPlayingUrl) {
+    //   // paused = true;
+    //   temcurrentUrl = "http://" + "wifi1.easylink.vn:8080/cms-web-api/private/video/video/1520928091894-cafesuavalentine.mp4";
+    // }
     return (
       <View style={{ flex: 1, backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center' }}>
         <StatusBar hidden={true} />
         <Button onPress={() => { this.setState({ modalShow: true }) }} style={{ position: 'absolute', top: 5, right: 5, opacity: 0.7, zIndex: 99999, backgroundColor: "transparent" }}>
-          <Icon name='md-menu' fontSize={24} />
+          <Image
+            style={{ width: 24, height: 24 }}
+            source={require('./images/setting.png')}
+          />
         </Button>
         <ModalLcd show={modalShow} onOK={this.onModalOk.bind(this)}></ModalLcd>
-        <Video source={{ uri: "http://wifi1.easylink.vn:8080//cms-web-api/private/video/video/1520328269596-tetdoanvien.mp4" }}   // Can be a URL or a local file. 
-          ref={(ref) => {
-            this.player = ref
-          }}                                      // Store reference 
-          rate={1.0}                              // 0 is paused, 1 is normal. 
-          volume={1.0}                            // 0 is muted, 1 is normal. 
-          muted={false}                           // Mutes the audio entirely. 
-          paused={false}                          // Pauses playback entirely. 
-          resizeMode="contain"                      // Fill the whole screen at aspect ratio.* 
-          repeat={true}                           // Repeat forever. 
-          playInBackground={false}                // Audio continues to play when app entering background. 
-          playWhenInactive={false}                // [iOS] Video continues to play when control or notification center are shown. 
-          ignoreSilentSwitch={"ignore"}           // [iOS] ignore | obey - When 'ignore', audio will still play with the iOS hard silent switch set to silent. When 'obey', audio will toggle with the switch. When not specified, will inherit audio settings as usual. 
-          progressUpdateInterval={250.0}          // [iOS] Interval to fire onProgress (default to ~250ms) 
-          onLoadStart={this.loadStart}            // Callback when video starts to load 
-          onLoad={this.setDuration}               // Callback when video loads 
-          onProgress={this.setTime}               // Callback every ~250ms with currentTime 
-          onEnd={this.onEnd}                      // Callback when playback finishes 
-          onError={this.videoError}               // Callback when video cannot be loaded 
-          onBuffer={this.onBuffer}                // Callback when remote video is buffering 
-          onTimedMetadata={this.onTimedMetadata}  // Callback when the stream receive some metadata 
-          style={styles.video} />
+        <MyDate style={{ position: "absolute", top: 15, left: 35 }}></MyDate>
+        <Text style={{ position: "absolute", bottom: 5, left: 5, color: "#fff", fontSize: 18 }}>{errorUrl ? ("video lỗi: " + errorUrl.replace(/^.*[\\\/]/, '')) : ""}</Text>
+        <Text style={{ position: "absolute", bottom: 5, right: 5, color: "#fff", fontSize: 18 }}>{newMessage ? "Đang cập nhật dữ liệu mới..." : ""}</Text>
+        {currentUrl ?
+          <Video source={currentUrl ? { uri: temcurrentUrl } : require('./video/1.mp4')}
+            ref={(ref) => {
+              this.player = ref
+            }}                                      // Store reference 
+            rate={1.0}                              // 0 is paused, 1 is normal. 
+            volume={1.0}                            // 0 is muted, 1 is normal. 
+            muted={false}                           // Mutes the audio entirely. 
+            paused={paused}                          // Pauses playback entirely. 
+            resizeMode="contain"                      // Fill the whole screen at aspect ratio.*
+            repeat={true}                           // Repeat forever. 
+            playInBackground={false}                // Audio continues to play when app entering background. 
+            playWhenInactive={false}                // [iOS] Video continues to play when control or notification center are shown. 
+            ignoreSilentSwitch={"ignore"}           // [iOS] ignore | obey - When 'ignore', audio will still play with the iOS hard silent switch set to silent. When 'obey', audio will toggle with the switch. When not specified, will inherit audio settings as usual. 
+            progressUpdateInterval={250.0}          // [iOS] Interval to fire onProgress (default to ~250ms) 
+            onLoadStart={this.loadStart}            // Callback when video starts to load 
+            onLoad={this.setDuration}               // Callback when video loads 
+            onProgress={this.setTime}               // Callback every ~250ms with currentTime 
+            onEnd={this.onEnd.bind(this)}                      // Callback when playback finishes 
+            onError={this.videoError.bind(this)}               // Callback when video cannot be loaded 
+            onBuffer={this.onBuffer}                // Callback when remote video is buffering 
+            onTimedMetadata={this.onTimedMetadata}  // Callback when the stream receive some metadata 
+            style={styles.video} /> : null
+        }
+        {
+          // this.renderPlayer(currentUrl)
+        }
+        <KeepAwake />
       </View>
     )
+  }
+
+  renderPlayer(currentUrl) {
+    const objSource = { uri: 'http://' + currentUrl };
+    if (currentUrl != currentPlayingUrl) {
+      this.player.setNativeProps({ source: objSource });
+    }
   }
 
   onValueChange(value) {

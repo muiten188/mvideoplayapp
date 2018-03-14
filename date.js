@@ -12,8 +12,7 @@ export default class MyDate extends Component {
         super(props)
         let dateNow = new Date();
         this.state = {
-            curTime: dateNow.toLocaleTimeString(),
-            curDate: dateNow.toLocaleDateString()
+            curTime: this.formatDate(dateNow)
         }
 
     }
@@ -22,48 +21,45 @@ export default class MyDate extends Component {
         setInterval(() => {
             let dateNow = new Date();
             this.setState({
-                curTime: dateNow.toLocaleTimeString(),
-                curDate: this.formatDate(dateNow)
+                curTime: this.formatDate(dateNow)
             })
         }, 1000)
     }
 
     formatDate(date) {
-        // var hour = date.getHours();
-        // var minutes = date.getMinutes();
-        var day = date.getDate();
-        var monthIndex = date.getMonth() + 1;
-        var year = date.getFullYear();
-        return day + "/" + monthIndex + "/" + year;
+        var hour = date.getHours();
+        var minutes = date.getMinutes();
+        var second = date.getSeconds();
+        // var day = date.getDate();
+        // var monthIndex = date.getMonth() + 1;
+        // var year = date.getFullYear();
+        if (second % 2 == 0) {
+            return (hour + " ") + ((minutes < 10) ? ("0" + minutes) : minutes);
+        }
+        else {
+            return (hour + ":") + ((minutes < 10) ? ("0" + minutes) : minutes);
+        }
+
     }
 
     render() {
-        const { dataItem } = this.props;
-        const { curTime, curDate } = this.state;
+        const { dataItem, style } = this.props;
+        const { curTime } = this.state;
         return (
-            <View style={styles.dateCon}>
-                <View style={styles.dateEx}><Text style={styles.dateText}>{curDate}</Text></View>
-                <View style={styles.dateEx}><Text style={styles.dateText}>{curTime}</Text></View>
-            </View>
+            <Text style={[styles.dateText, style]}>{curTime}</Text>
         )
     }
 }
 const styles = StyleSheet.create({
     dateCon: {
-        width: 140,
-        height: '100%',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center'
+        minWidth: 60,
+        height: 40,
     },
     dateEx: {
-        width: '100%',
-        height: '40%',
-        alignItems: 'center',
-        justifyContent: 'center'
+        flex: 1
     },
     dateText: {
         color: '#ccc',
-        fontSize: 20
+        fontSize: 35
     }
 });
