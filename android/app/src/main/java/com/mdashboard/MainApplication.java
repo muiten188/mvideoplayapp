@@ -11,6 +11,8 @@ import com.facebook.soloader.SoLoader;
 import com.brentvatne.react.ReactVideoPackage;
 import com.oblador.vectoricons.VectorIconsPackage;
 import com.corbt.keepawake.KCKeepAwakePackage;
+import com.RNFetchBlob.RNFetchBlobPackage;  
+import codes.simen.IMEI.IMEI;
 import java.util.Arrays;
 import java.util.List;
 
@@ -29,7 +31,9 @@ public class MainApplication extends Application implements ReactApplication {
             new RCTMqttPackage(),
             new ReactVideoPackage(), 
             new VectorIconsPackage(),
-            new KCKeepAwakePackage()
+            new KCKeepAwakePackage(),
+            new RNFetchBlobPackage(),
+            new IMEI()
       );
     }
 

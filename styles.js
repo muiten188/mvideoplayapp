@@ -9,7 +9,7 @@ export default {
   },
   modalContainer: {
     width: 350,
-    height: 220,
+    height: 320,
     borderRadius: 4,
     borderColor: "#cecece",
     backgroundColor: "#fff",

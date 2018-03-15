@@ -27,6 +27,7 @@ import Modal from "react-native-modal";
 import ModalLcd from "./modal";
 import Video from "react-native-video";
 import KeepAwake from 'react-native-keep-awake';
+import * as Helper from './helper';
 const currentPlayingUrl = null;
 const currentPlayingIndex = false;
 const mqtt = require('react-native-mqtt');
@@ -39,6 +40,8 @@ let subInterVal = [];
 const mqttClient = null;
 const newMesTimeout = null;
 const errorTimeout = null;
+const imageTimeOut = null;
+const connectInterval = null;
 function guid() {
   function s4() {
     return Math.floor((1 + Math.random()) * 0x10000)
@@ -63,7 +66,12 @@ export default class App extends Component {
       arrLCD: [],
       arrayUrl: [],
       currentUrl: null,
-      errorUrl: null
+      currentFileType: null,
+      currentMqttResult: null,
+      errorUrl: null,
+      server: null,
+      mqttServer: null,
+      appError: null
     }
 
   }
@@ -71,8 +79,9 @@ export default class App extends Component {
   componentDidMount() {
     let arrLCD = [];
     let arrSegment = [];
-
-    this.getLCD_Segment();
+    //this.getLCD_Segment();
+    this.playDataLocal();
+    this.subscribeTopic();
   }
 
   async getLCD_Segment() {
@@ -138,40 +147,138 @@ export default class App extends Component {
     return false;
   }
 
-  createClient(topic) {
+  async subscribeTopic() {
+    AsyncStorage.multiGet(['@settingsApp'], (err, values) => {
+      let settingsApp = null;
+      if (values.length > 0) {
+        values.map((result, i, store) => {
+          let key = store[i][0];
+          let value = store[i][1];
+          if (key == "@settingsApp" && value != null && value != '') {
+            settingsApp = JSON.parse(value);
+          }
+        });
+        if (settingsApp) {
+          this.setState({ mqttServer: settingsApp.mqttServer, server: settingsApp.server })
+          this.createClient(Helper.getIMEI(), settingsApp.mqttServer);
+        }
+        else {
+          this.setState({ modalShow: true });
+        }
+      }
+      else {
+        this.setState({ modalShow: true });
+      }
+    }).catch(() => {
+      this.setState({ modalShow: true });
+    })
+  }
+
+  createClient(topic, mqttServer) {
     /* create mqtt client */
 
     mqtt.createClient({
-      uri: 'tcp://113.171.23.140:1883',
+      uri: `tcp://${mqttServer}`,
       clientId: 'tcp/incoming/' + topic + "/" + clientId
     }).then((client) => {
       mqttClient = client;
-      client.on('closed', function () {
-        alert('kết nối đến server đã đóng');
+      client.on('closed', (msg) => {
+        this.setState({ appError: "Kết nối đến server đã đóng." })
+        if (!connectInterval) {
+          connectInterval = setInterval(() => {
+            this.reconnect(topic, mqttServer);
+          }, 30000)
+        }
       });
-      client.on('error', function (msg) {
-        alert('Lỗi: ', msg);
+      client.on('error', (msg) => {
+        this.setState({ appError: "Lỗi: kết nối đến server thất bại." })
+        if (!connectInterval) {
+          connectInterval = setInterval(() => {
+            this.reconnect(topic, mqttServer);
+          }, 30000)
+        }
       });
       client.on('message', this.onMessageMqtt.bind(this));
-      let req = { request: { topic: topic, clientId: clientId } };
-      client.on('connect', function () {
+      let req = { request: { imei: Helper.getIMEI(), clientId: clientId } };
+      client.on('connect', (msg) => {
+        this.setState({ appError: null })
+        if (connectInterval) {
+          clearInterval(connectInterval);
+        }
         client.subscribe('tcp/incoming/' + topic, 2);
         client.publish('tcp/outgoing/request', JSON.stringify(req), 2, false);
       });
       client.connect();
-    }).catch(function (err) {
-      alert(err);
+    }).catch((err) => {
+      this.setState({ appError: "Lỗi: kết nối đến server thất bại." })
+      if (!connectInterval) {
+        connectInterval = setInterval(() => {
+          this.reconnect(topic, mqttServer);
+        }, 30000)
+      }
     });
+  }
+
+  reconnect(topic, mqttServer) {
+    clientId = guid();
+    mqtt.createClient({
+      uri: `tcp://${mqttServer}`,
+      clientId: 'tcp/incoming/' + topic + "/" + clientId
+    }).then((client) => {
+      mqttClient = client;
+      client.on('closed', () => {
+        this.setState({ appError: "Kết nối đến server đã đóng." })
+      });
+      client.on('error', (msg) => {
+        this.setState({ appError: "Lỗi: kết nối đến server thất bại." })
+      });
+      client.on('message', this.onMessageMqtt.bind(this));
+      let req = { request: { imei: Helper.getIMEI(), clientId: clientId } };
+      client.on('connect', () => {
+        this.setState({ appError: null })
+        if (connectInterval) {
+          clearInterval(connectInterval);
+        }
+        client.subscribe('tcp/incoming/' + topic, 2);
+        client.publish('tcp/outgoing/request', JSON.stringify(req), 2, false);
+      });
+      client.connect();
+    }).catch((err) => {
+      this.setState({ appError: "Lỗi: kết nối đến server thất bại." })
+    });
+  }
+
+  async playDataLocal() {
+    try {
+      const value = await AsyncStorage.getItem('@tableData');
+      if (value !== null) {
+        const msgObj = JSON.parse(value);
+        if (msgObj && msgObj.resources && msgObj.resources.length > 0) {
+          let arrayUrl = msgObj.resources;
+          this.setArrUrlFirst(arrayUrl, true);
+          if (newMesTimeout) {
+            clearTimeout(newMesTimeout);
+          }
+          newMesTimeout = setTimeout(() => {
+            this.setState({
+              newMessage: false
+            })
+          }, 13000);
+        }
+      }
+    } catch (error) {
+      // Error retrieving data
+    }
   }
 
   onMessageMqtt(msg) {
     AsyncStorage.setItem("@tableData", msg.data);
     this.bindInterVal(msg);
     const msgObj = JSON.parse(msg.data);
-    debugger;
     if (msgObj && msgObj.resources && msgObj.resources.length > 0) {
       let arrayUrl = msgObj.resources;
-      this.setState({ arrayUrl: arrayUrl, newMessage: true, currentUrl: arrayUrl[0] })
+      this.setArrUrlFirst(arrayUrl);
+      this.syncVideoCache(arrayUrl);
       if (newMesTimeout) {
         clearTimeout(newMesTimeout);
       }
@@ -181,6 +288,61 @@ export default class App extends Component {
         })
       }, 13000);
     }
+  }
+
+  async setArrUrlFirst(arrayUrl, fromLocal) {
+    let isExitsCache = await Helper.checkVideoCacheExits(arrayUrl[0].resourcePath);
+    let urlSource = null;
+    if (isExitsCache) {
+      urlSource = Helper.getLinkVideoCacheExits(arrayUrl[0].resourcePath);
+    }
+    else {
+      urlSource = arrayUrl[0].resourcePath;
+    }
+    //urlSource = arrayUrl[0].resourcePath;
+    this.setState({
+      arrayUrl: arrayUrl, newMessage: (fromLocal ? false : true),
+      currentMqttResult: arrayUrl[0],
+      currentUrl: urlSource, currentFileType: arrayUrl[0].fileType
+    })
+  }
+
+  async setUrlFromCache(url) {
+    try {
+      let isExitsCache = await Helper.checkVideoCacheExits(url.resourcePath);
+      let urlSource = null;
+      if (isExitsCache) {
+        urlSource = Helper.getLinkVideoCacheExits(url.resourcePath);
+      }
+      else {
+        urlSource = url;
+        sync1VideoCache(url);
+      }
+      this.setState({
+        currentUrl: urlSource,
+        currentMqttResult: url,
+        currentFileType: url.fileType
+      })
+    }
+    catch (e) {
+      //debugger;
+    }
+
+  }
+
+  sync1VideoCache(url) {
+    Helper.downloadVideo(url.resourcePath);
+  }
+
+  syncVideoCache(arrUrl) {
+    // Helper.downloadVideo(arrUrl[0].resourcePath);
+    for (var i = 0; i < arrUrl.length; i++) {
+      let url = arrUrl[i];
+      Helper.downloadVideo(url.resourcePath);
+    }
+  }
+
+  syncDeleteVideoCache() {
 
   }
 
@@ -200,158 +362,90 @@ export default class App extends Component {
       let url = msgObj.resources[i];
       console.log(url);
     }
-
-    // const objTableData = this.bindArrMachine(tableData);
-    // subInterVal = window.setInterval(() => {
-    //   //console.log('change array');
-    //   for (var i = 0; i < objTableData.arrMultilMachine.length; i++) {
-    //     let arrMulti = objTableData.arrMultilMachine[i];
-    //     for (var j = 0; j < arrMulti.length; j++) {
-    //       let item = arrMulti[j];
-    //       let nextItem = {};
-    //       if (j == arrMulti.length - 1) {
-    //         nextItem = arrMulti[0];
-    //       }
-    //       else {
-    //         nextItem = arrMulti[j + 1];
-    //       }
-    //       if (this.state.arrayShow.indexOf(item) > -1 && objTableData.arrSingleMachine.indexOf(item) > -1) {
-    //         objTableData.arrSingleMachine[objTableData.arrSingleMachine.indexOf(item)] = nextItem;
-    //         break;
-    //       }
-    //     }
-    //   }
-    //   let tempCurrentSlice = 0;
-    //   let tempEndSilce = 0;
-    //   if (currentSlice < numberRow) {
-    //     tempCurrentSlice = objTableData.arrSingleMachine.length - numberRow;
-    //   }
-    //   else {
-    //     tempCurrentSlice = currentSlice - numberRow;
-    //   }
-    //   if (endSilce == numberRow) {
-    //     tempEndSilce = objTableData.arrSingleMachine.length;
-    //   }
-    //   else {
-    //     tempEndSilce = endSilce - numberRow;
-    //   }
-    //   let arrayShow = objTableData.arrSingleMachine.slice(tempCurrentSlice, tempEndSilce);
-    //   if (arrayShow.length == this.state.arrayShow.length &&
-    //     arrayShow.length > 0 && arrayShow[0].machine == this.state.arrayShow[0].machine) {
-    //     this.setState({
-    //       arrayShow: arrayShow,
-    //       change: this.state.change == 0 ? 1 : 0
-    //     })
-    //   }
-    // }, 3000);
-    // currentSlice = 0;
-    // endSilce = 5;
-    // const arrayShow = objTableData.arrSingleMachine.slice(currentSlice, endSilce);
-    // currentSlice = currentSlice + numberRow;
-    // endSilce = endSilce + numberRow;
-    // if (currentSlice >= objTableData.arrSingleMachine.length) {
-    //   currentSlice = 0;
-    //   endSilce = 5;
-    // }
-    // this.setState({
-    //   newMessage: true,
-    //   arrayShow: arrayShow,
-    //   loadding: false
-    // })
-    // interval = window.setInterval(() => {
-    //   const arrayShow = objTableData.arrSingleMachine.slice(currentSlice, endSilce);
-    //   currentSlice = currentSlice + numberRow;
-    //   endSilce = endSilce + numberRow;
-    //   if (currentSlice >= objTableData.arrSingleMachine.length) {
-    //     currentSlice = 0;
-    //     endSilce = 5;
-    //   }
-    //   this.setState({
-    //     arrayShow: arrayShow,
-    //     loadding: false
-    //   })
-    // }, 13000)
-    // if (newMesTimeout) {
-    //   clearTimeout(newMesTimeout);
-    // }
-    // newMesTimeout = setTimeout(() => {
-    //   this.setState({
-    //     newMessage: false
-    //   })
-    // }, 15000);
   }
 
-  bindArrMachine(tableData) {
-    let temArr = [];
-    let arrSingleMachine = [];
-    let arrPushedMachine = [];
-    let arrMultilMachine = [];
-    for (var i = 0; i < tableData.length; i++) {
-      let itemI = tableData[i];
-      temArr = [];
-      if (arrSingleMachine.indexOf(itemI) == -1 && arrPushedMachine.indexOf(itemI.machine) == -1) {
-        arrSingleMachine.push(itemI);
-      }
-      if (arrPushedMachine.indexOf(itemI.machine) == -1) {
-        arrPushedMachine.push(itemI.machine);
-        for (var j = i + 1; j < tableData.length; j++) {
-          let itemJ = tableData[j];
-          if (itemJ.machine == itemI.machine) {
-            if (temArr.indexOf(itemI) == -1) {
-              temArr.push(itemI);
-            }
-            temArr.push(itemJ);
-          }
-        }
-      }
-      if (temArr.length > 0) {
-        arrMultilMachine.push(temArr);
-      }
+  onModalOk(state) {
+    this.setState({ mqttServer: state.mqttServer, server: state.server })
+    AsyncStorage.setItem('@settingsApp', JSON.stringify(state));
+    this.setSettingsApptoServer(state);
+    if (!mqttClient) {
+      this.createClient(Helper.getIMEI(), state.mqttServer);
     }
-    return {
-      arrMultilMachine: arrMultilMachine,
-      arrSingleMachine: arrSingleMachine
-    };
+    else {
+      let req = { request: { imei: Helper.getIMEI(), clientId: clientId } };
+      mqttClient.subscribe('tcp/incoming/' + Helper.getIMEI(), 2);
+      mqttClient.publish('tcp/outgoing/request', JSON.stringify(req), 2, false);
+    }
   }
 
-  onModalOk(lcd) {
-    this.setState({ modalShow: false })
-    if (lcd) {
-      AsyncStorage.setItem('@LCD', lcd);
-      let req = { request: { topic: lcd, clientId: clientId } };
-      if (!mqttClient) {
-        this.createClient(lcd);
+  setSettingsApptoServer(state) {
+    let dataPost = {};
+    dataPost = {};
+    dataPost.imei = state.imei;
+    dataPost.deviceName = state.deviceName;
+    fetch(`http://${state.server}/cms-web-api/device/register`, {//${state.server}
+      method: 'POST',
+      headers: {
+        Accept: "application/json, text/plain, */*",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(dataPost)
+    }).then((res) => {
+      if (res.status == 200) {
+        this.setState({ appError: null, modalShow: false })
       }
       else {
-        mqttClient.subscribe('tcp/incoming/' + lcd, 2);
-        mqttClient.publish('tcp/outgoing/request', JSON.stringify(req), 2, false);
+        this.setState({ appError: 'Lưu thông tin server thất bại' })
       }
-    }
+    }).then((resJson) => {
+
+    }).catch((error) => {
+      this.setState({ appError: 'Lưu thông tin server thất bại' })
+    })
   }
 
   onEnd(val) {
-    const { currentUrl, arrayUrl } = this.state;
-    let index = arrayUrl.indexOf(currentUrl);
+    const { currentUrl, arrayUrl, currentMqttResult } = this.state;
+    let index = -1;
+    for (var i = 0; i < arrayUrl.length; i++) {
+      if (arrayUrl[i].resourcePath == currentMqttResult.resourcePath) {
+        index = i;
+        break;
+      }
+    }
+    console.log(index);
     let newIndex = 0;
     let newUrl = null;
-    debugger;
-    if (index != arrayUrl.length) {
-      newIndex = newIndex + 1;
+    if (index != arrayUrl.length - 1) {
+      newIndex = index + 1;
     }
     newUrl = arrayUrl[newIndex];
-    this.setState({ currentUrl: newUrl })
+    this.setUrlFromCache(newUrl);
   }
 
   videoError(e, b, c, d) {
-    const { currentUrl, arrayUrl } = this.state;
-    let index = arrayUrl.indexOf(currentUrl);
+    const { currentUrl, arrayUrl, currentMqttResult } = this.state;
+    console.log("error video")
+    if (currentUrl.indexOf("file://") == 0) {
+      this.setState({ currentUrl: currentMqttResult.resourcePath });
+      Helper.downloadVideo(currentMqttResult.resourcePath);
+    }
+    let index = -1;
+    for (var i = 0; i < arrayUrl.length; i++) {
+      if (arrayUrl[i].resourcePath == currentMqttResult.resourcePath) {
+        index = i;
+        break;
+      }
+    }
     let newIndex = 0;
     let newUrl = null;
-    if (index != arrayUrl.length) {
-      newIndex = newIndex + 1;
+    if (index != arrayUrl.length - 1) {
+      newIndex = index + 1;
     }
     newUrl = arrayUrl[newIndex];
-    this.setState({ currentUrl: newUrl, errorUrl: currentUrl })
+ 
+    this.setState({ currentUrl: newUrl.resourcePath, errorUrl: currentUrl, currentFileType: newUrl.fileType })
+
     if (errorTimeout) {
       clearTimeout(errorTimeout);
     }
@@ -362,13 +456,21 @@ export default class App extends Component {
     }, 6000);
   }
   render() {
-    const { newMessage, arrLCD, modalShow, currentUrl, errorUrl } = this.state;
+    const { newMessage, arrLCD, modalShow, currentUrl, errorUrl, currentFileType, appError } = this.state;
     let paused = false;
     let temcurrentUrl = currentUrl;
     // if (currentUrl != currentPlayingUrl) {
     //   // paused = true;
     //   temcurrentUrl = "http://" + "wifi1.easylink.vn:8080/cms-web-api/private/video/video/1520928091894-cafesuavalentine.mp4";
     // }
+    if (imageTimeOut) {
+      clearTimeout(imageTimeOut);
+    }
+    if (currentFileType == "IMAGE") {
+      imageTimeOut = setTimeout(() => {
+        this.onEnd();
+      }, 10000);
+    }
     return (
       <View style={{ flex: 1, backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center' }}>
         <StatusBar hidden={true} />
@@ -379,11 +481,12 @@ export default class App extends Component {
           />
         </Button>
         <ModalLcd show={modalShow} onOK={this.onModalOk.bind(this)}></ModalLcd>
-        <MyDate style={{ position: "absolute", top: 15, left: 35 }}></MyDate>
-        <Text style={{ position: "absolute", bottom: 5, left: 5, color: "#fff", fontSize: 18 }}>{errorUrl ? ("video lỗi: " + errorUrl.replace(/^.*[\\\/]/, '')) : ""}</Text>
-        <Text style={{ position: "absolute", bottom: 5, right: 5, color: "#fff", fontSize: 18 }}>{newMessage ? "Đang cập nhật dữ liệu mới..." : ""}</Text>
-        {currentUrl ?
-          <Video source={currentUrl ? { uri: temcurrentUrl } : require('./video/1.mp4')}
+        <MyDate style={{ position: "absolute", top: 15, left: 35, zIndex: 99999 }}></MyDate>
+        <Text style={{ position: "absolute", bottom: 25, left: 5, color: "#fff", fontSize: 18, zIndex: 99999 }}>{appError || true ? appError : ""}</Text>
+        <Text style={{ position: "absolute", bottom: 5, left: 5, color: "#fff", fontSize: 18, zIndex: 99999 }}>{errorUrl ? ("video lỗi: " + errorUrl.replace(/^.*[\\\/]/, '')) : ""}</Text>
+        <Text style={{ position: "absolute", bottom: 5, right: 5, color: "#fff", fontSize: 18, zIndex: 99999 }}>{newMessage ? "Đang cập nhật dữ liệu mới..." : ""}</Text>
+        {currentFileType == "VIDEO" || !currentUrl ?
+          <Video source={currentUrl ? { uri: currentUrl } : require('./video/1.mp4')}
             ref={(ref) => {
               this.player = ref
             }}                                      // Store reference 
@@ -404,13 +507,21 @@ export default class App extends Component {
             onError={this.videoError.bind(this)}               // Callback when video cannot be loaded 
             onBuffer={this.onBuffer}                // Callback when remote video is buffering 
             onTimedMetadata={this.onTimedMetadata}  // Callback when the stream receive some metadata 
-            style={styles.video} /> : null
+            style={styles.video} /> :
+          null
         }
+        {currentFileType == "IMAGE" ?
+          < Image style={styles.video} resizeMode="contain"
+            source={currentUrl ? { uri: currentUrl } : require('./video/1.mp4')}></Image> :
+          null
+        }
+
+
         {
           // this.renderPlayer(currentUrl)
         }
         <KeepAwake />
-      </View>
+      </View >
     )
   }
 
@@ -533,6 +644,5 @@ const styles = StyleSheet.create({
     left: 0,
     bottom: 0,
     right: 0,
-    backgroundColor: 'red'
   }
 });

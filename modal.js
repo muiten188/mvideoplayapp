@@ -1,5 +1,5 @@
 import React, { Component } from "react";
-import { Text, TouchableOpacity, View, AsyncStorage } from "react-native";
+import { Text, TouchableOpacity, View, AsyncStorage, TextInput } from "react-native";
 import {
     Button,
     Item,
@@ -10,72 +10,49 @@ import {
     H1,
     H3,
     Label,
-    Picker
+    Picker,
+    Input
 } from "native-base";
 import styles from "./styles";
 import Modal from "react-native-modal";
-
+import * as Helper from './helper';
 export default class extends Component {
     constructor(props) {
         super(props);
         this.state = {
             lcd: null,
             arrLCD: [],
-            loadding: false
+            loadding: false,
+            deviceName: "ANDROID_BOX Mix5",
+            imei: Helper.getIMEI(),
+            server: '10.168.85.20:8080',
+            mqttServer: '113.171.23.140:1883'
         }
     }
 
     componentDidMount() {
-        this.getLCD();
+        this.getAppState();
     }
 
-    async getLCD() {
-        try {
-            let responseLCD = await fetch("http://10.168.85.20:8080/cms-web-api/device/load-all", {
-                method: 'GET',
-                headers: new Headers({
-                    'Content-Type': 'application/json'
-                }, ),
-                async: false
-            })
-            arrLCD = await responseLCD.json();
-            //this.setState({ arrLCD: arrLCD })
-            if (arrLCD.length <= 0) {
-                Alert.alert("Thông báo", "Không có LCD nào trong dữ liệu, vui lòng tạo LCD vào khởi động lại app.");
+    async getAppState() {
+        let self=this;
+        AsyncStorage.multiGet(['@settingsApp'], (err, values) => {
+            let settingsApp = {};
+            if (values.length > 0) {
+                values.map((result, i, store) => {
+                    let key = store[i][0];
+                    let value = store[i][1];
+                    if (key == "@settingsApp" && value != null && value != '') {
+                        settingsApp = JSON.parse(value);
+                    }
+                });
+                if (settingsApp) {
+                    self.setState(settingsApp);
+                }
             }
+        }).catch(() => {
 
-        } catch (error) {
-            Alert.alert("Thông báo", "Ko lấy được danh sách LCD kiểm tra lại kết nối.");
-        }
-        if (arrLCD.length > 0) {
-            AsyncStorage.multiGet(['@LCD'], (err, values) => {
-                let lcd = "";
-                if (values.length > 0) {
-                    values.map((result, i, store) => {
-                        let key = store[i][0];
-                        let value = store[i][1];
-                        if (key == "@LCD" && value != null && value != '') {
-                            lcd = value;
-                        }
-                    });
-                    if ((lcd == "" || lcd == null) || (this.checkExitsLCDInArr(lcd, arrLCD) == false)) {
-                        this.setState({ arrLCD: arrLCD, lcd: arrLCD[0].deviceTopic });
-                        //this.createClient(arrLCD[0].deviceTopic);
-                    }
-                    else {
-                        this.setState({ arrLCD: arrLCD, lcd: lcd });
-                        //this.createClient(lcd);
-                    }
-                }
-                else {
-                    this.setState({ arrLCD: arrLCD, lcd: arrLCD[0].deviceTopic });
-                    //this.createClient(arrLCD[0].deviceTopic);
-                }
-            }).catch(() => {
-                this.setState({ arrLCD: arrLCD, lcd: arrLCD[0].deviceTopic });
-                //this.createClient(arrLCD[0].deviceTopic);
-            })
-        }
+        })
     }
 
     checkExitsLCDInArr(lcd, arrLcd) {
@@ -91,19 +68,11 @@ export default class extends Component {
     }
 
     onLCDChange(value) {
-        
-        this.setState({
-            lcd: value,
-            loadding: true
-        });
-        // let req = { request: { topic: value, clientId: clientId } };
-        // if (!mqttClient) {
-        //     this.createClient(value);
-        // }
-        // else {
-        //     mqttClient.subscribe('tcp/incoming/' + value, 2);
-        //     mqttClient.publish('tcp/outgoing/request', JSON.stringify(req), 2, false);
-        // }
+
+        // this.setState({
+        //     lcd: value,
+        //     loadding: true
+        // });
     }
 
     render() {
@@ -118,12 +87,12 @@ export default class extends Component {
                         height: 40
                     }}>
                         <H3 style={{}}>
-                            Chọn LCD
+                            Cài đặt
                         </H3>
                     </View>
-                    <View style={{ width: '100%', flex: 1, backgroundColor: '#f6f8fa', alignItems: 'center', justifyContent: 'center' }}>
-                        <Item style={{ borderBottomWidth: 0 }}>
-                            <Label>LCD: </Label>
+                    <View style={{ width: '100%', flex: 1, backgroundColor: '#f6f8fa', alignItems: 'center' }}>
+                        {/* <Item style={{ borderBottomWidth: 0 }}> */}
+                        {/* <Label>LCD: </Label>
                             <Picker
                                 style={{ minWidth: 250 }}
                                 iosHeader="Select one"
@@ -134,12 +103,36 @@ export default class extends Component {
                                 {this.state.arrLCD.map((item, index) => {
                                     return <Item key={index} label={item.deviceName} value={item.deviceTopic} />
                                 })}
-                            </Picker>
+                            </Picker> */}
+                        <Item floatingLabel style={{}}>
+                            <Label style={{ paddingTop: 0, marginBottom: 22 }}>Tên device: </Label>
+                            <Input style={{ minWidth: 250 }}
+                                onChangeText={(deviceName) => this.setState({ deviceName: deviceName })}
+                                value={this.state.deviceName} />
+                        </Item>
+                        <Item floatingLabel style={{ marginTop: 6 }}>
+                            <Label style={{ paddingTop: 0, marginBottom: 22 }}>IMEI: </Label>
+                            <Input style={{ minWidth: 250 }}
+                                disabled
+                                onChangeText={(imei) => this.setState({ imei: imei })}
+                                value={this.state.imei} />
+                        </Item>
+                        <Item floatingLabel style={{ marginTop: 6 }}>
+                            <Label style={{ paddingTop: 0, marginBottom: 22 }}>Server: </Label>
+                            <Input style={{ minWidth: 250 }}
+                                onChangeText={(server) => this.setState({ server: server })}
+                                value={this.state.server} />
+                        </Item>
+                        <Item floatingLabel style={{ marginTop: 6 }}>
+                            <Label style={{ paddingTop: 0, marginBottom: 22 }}>Mqtt Server: </Label>
+                            <Input style={{ minWidth: 250 }}
+                                onChangeText={(mqttServer) => this.setState({ mqttServer: mqttServer })}
+                                value={this.state.mqttServer} />
                         </Item>
                     </View>
                     <Footer style={styles.Footer}>
                         <Item style={styles.border_bottomNone}>
-                            <Button onPress={() => { onOK(this.state.lcd) }} style={styles.buttonCancel}>
+                            <Button onPress={() => { onOK(this.state) }} style={styles.buttonCancel}>
                                 <Text style={[styles.textSize, styles.textOk]}>OK</Text>
                             </Button>
                         </Item>
