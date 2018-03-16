@@ -174,19 +174,24 @@ export default class App extends Component {
     })
   }
 
-  createClient(topic, mqttServer) {
+  createClient(topic, mqttServer, deviceName) {
     /* create mqtt client */
+    clientId = guid();
 
+    this.setState({ appError: "Đang kết nối đến server..." })
     mqtt.createClient({
       uri: `tcp://${mqttServer}`,
       clientId: 'tcp/incoming/' + topic + "/" + clientId
     }).then((client) => {
       mqttClient = client;
       client.on('closed', (msg) => {
-        this.setState({ appError: "Kết nối đến server đã đóng." })
+        if (!mqttClient) {
+          this.setState({ appError: "Kết nối đến server đã đóng." })
+        }
+
         if (!connectInterval) {
           connectInterval = setInterval(() => {
-            this.reconnect(topic, mqttServer);
+            this.reconnect(topic, mqttServer, deviceName);
           }, 30000)
         }
       });
@@ -194,12 +199,12 @@ export default class App extends Component {
         this.setState({ appError: "Lỗi: kết nối đến server thất bại." })
         if (!connectInterval) {
           connectInterval = setInterval(() => {
-            this.reconnect(topic, mqttServer);
+            this.reconnect(topic, mqttServer, deviceName);
           }, 30000)
         }
       });
       client.on('message', this.onMessageMqtt.bind(this));
-      let req = { request: { imei: Helper.getIMEI(), clientId: clientId } };
+      let req = { request: { imei: Helper.getIMEI(), clientId: clientId, deviceName: deviceName } };
       client.on('connect', (msg) => {
         this.setState({ appError: null })
         if (connectInterval) {
@@ -211,15 +216,16 @@ export default class App extends Component {
       client.connect();
     }).catch((err) => {
       this.setState({ appError: "Lỗi: kết nối đến server thất bại." })
-      if (!connectInterval) {
-        connectInterval = setInterval(() => {
-          this.reconnect(topic, mqttServer);
-        }, 30000)
+      if (connectInterval) {
+        clearInterval(connectInterval);
       }
+      connectInterval = setInterval(() => {
+        this.reconnect(topic, mqttServer, deviceName);
+      }, 30000)
     });
   }
 
-  reconnect(topic, mqttServer) {
+  reconnect(topic, mqttServer, deviceName) {
     clientId = guid();
     mqtt.createClient({
       uri: `tcp://${mqttServer}`,
@@ -233,7 +239,7 @@ export default class App extends Component {
         this.setState({ appError: "Lỗi: kết nối đến server thất bại." })
       });
       client.on('message', this.onMessageMqtt.bind(this));
-      let req = { request: { imei: Helper.getIMEI(), clientId: clientId } };
+      let req = { request: { imei: Helper.getIMEI(), clientId: clientId, deviceName: deviceName } };
       client.on('connect', () => {
         this.setState({ appError: null })
         if (connectInterval) {
@@ -291,6 +297,8 @@ export default class App extends Component {
   }
 
   async setArrUrlFirst(arrayUrl, fromLocal) {
+    //delete cache folder
+    //await Helper.deleteEntireFolder();
     let isExitsCache = await Helper.checkVideoCacheExits(arrayUrl[0].resourcePath);
     let urlSource = null;
     if (isExitsCache) {
@@ -334,11 +342,11 @@ export default class App extends Component {
     Helper.downloadVideo(url.resourcePath);
   }
 
-  syncVideoCache(arrUrl) {
-    // Helper.downloadVideo(arrUrl[0].resourcePath);
+  async syncVideoCache(arrUrl) {
+    Helper.downloadVideo(arrUrl[0].resourcePath);
     for (var i = 0; i < arrUrl.length; i++) {
       let url = arrUrl[i];
-      Helper.downloadVideo(url.resourcePath);
+      Helper.downloadVideo(url.resourcePath, null);
     }
   }
 
@@ -365,16 +373,24 @@ export default class App extends Component {
   }
 
   onModalOk(state) {
-    this.setState({ mqttServer: state.mqttServer, server: state.server })
-    AsyncStorage.setItem('@settingsApp', JSON.stringify(state));
-    this.setSettingsApptoServer(state);
-    if (!mqttClient) {
-      this.createClient(Helper.getIMEI(), state.mqttServer);
+    try {
+
+      this.setState({ mqttServer: state.mqttServer, server: state.server, deviceName: state.deviceName, appError: null, modalShow: false })
+      //this.setSettingsApptoServer(state);
+      AsyncStorage.setItem('@settingsApp', JSON.stringify(state));
+      if (mqttClient) {
+        mqttClient.disconnect();
+      }
+      this.createClient(Helper.getIMEI(), state.mqttServer, state.deviceName);
+      // }
+      // else {
+      //   let req = { request: { imei: Helper.getIMEI(), clientId: clientId } };
+      //   mqttClient.subscribe('tcp/incoming/' + Helper.getIMEI(), 2);
+      //   mqttClient.publish('tcp/outgoing/request', JSON.stringify(req), 2, false);
+      // }
     }
-    else {
-      let req = { request: { imei: Helper.getIMEI(), clientId: clientId } };
-      mqttClient.subscribe('tcp/incoming/' + Helper.getIMEI(), 2);
-      mqttClient.publish('tcp/outgoing/request', JSON.stringify(req), 2, false);
+    catch (e) {
+      this.setState({ appError: 'Kiểm tra lại tên server.' })
     }
   }
 
@@ -392,7 +408,7 @@ export default class App extends Component {
       body: JSON.stringify(dataPost)
     }).then((res) => {
       if (res.status == 200) {
-        this.setState({ appError: null, modalShow: false })
+        this.setState({ modalShow: false })
       }
       else {
         this.setState({ appError: 'Lưu thông tin server thất bại' })
@@ -400,6 +416,7 @@ export default class App extends Component {
     }).then((resJson) => {
 
     }).catch((error) => {
+      debugger;
       this.setState({ appError: 'Lưu thông tin server thất bại' })
     })
   }
@@ -428,7 +445,7 @@ export default class App extends Component {
     console.log("error video")
     if (currentUrl.indexOf("file://") == 0) {
       this.setState({ currentUrl: currentMqttResult.resourcePath });
-      Helper.downloadVideo(currentMqttResult.resourcePath);
+      Helper.downloadVideo(currentMqttResult.resourcePath, null, true);
     }
     let index = -1;
     for (var i = 0; i < arrayUrl.length; i++) {
@@ -443,7 +460,7 @@ export default class App extends Component {
       newIndex = index + 1;
     }
     newUrl = arrayUrl[newIndex];
- 
+
     this.setState({ currentUrl: newUrl.resourcePath, errorUrl: currentUrl, currentFileType: newUrl.fileType })
 
     if (errorTimeout) {
@@ -480,43 +497,43 @@ export default class App extends Component {
             source={require('./images/setting.png')}
           />
         </Button>
-        <ModalLcd show={modalShow} onOK={this.onModalOk.bind(this)}></ModalLcd>
+        <ModalLcd show={modalShow} onOK={this.onModalOk.bind(this)} onCancel={() => { this.setState({ modalShow: false }) }}></ModalLcd>
         <MyDate style={{ position: "absolute", top: 15, left: 35, zIndex: 99999 }}></MyDate>
         <Text style={{ position: "absolute", bottom: 25, left: 5, color: "#fff", fontSize: 18, zIndex: 99999 }}>{appError || true ? appError : ""}</Text>
-        <Text style={{ position: "absolute", bottom: 5, left: 5, color: "#fff", fontSize: 18, zIndex: 99999 }}>{errorUrl ? ("video lỗi: " + errorUrl.replace(/^.*[\\\/]/, '')) : ""}</Text>
+        {/* <Text style={{ position: "absolute", bottom: 5, left: 5, color: "#fff", fontSize: 18, zIndex: 99999 }}>{errorUrl ? ("video lỗi: " + errorUrl.replace(/^.*[\\\/]/, '')) : ""}</Text> */}
         <Text style={{ position: "absolute", bottom: 5, right: 5, color: "#fff", fontSize: 18, zIndex: 99999 }}>{newMessage ? "Đang cập nhật dữ liệu mới..." : ""}</Text>
-        {currentFileType == "VIDEO" || !currentUrl ?
-          <Video source={currentUrl ? { uri: currentUrl } : require('./video/1.mp4')}
-            ref={(ref) => {
-              this.player = ref
-            }}                                      // Store reference 
-            rate={1.0}                              // 0 is paused, 1 is normal. 
-            volume={1.0}                            // 0 is muted, 1 is normal. 
-            muted={false}                           // Mutes the audio entirely. 
-            paused={paused}                          // Pauses playback entirely. 
-            resizeMode="contain"                      // Fill the whole screen at aspect ratio.*
-            repeat={true}                           // Repeat forever. 
-            playInBackground={false}                // Audio continues to play when app entering background. 
-            playWhenInactive={false}                // [iOS] Video continues to play when control or notification center are shown. 
-            ignoreSilentSwitch={"ignore"}           // [iOS] ignore | obey - When 'ignore', audio will still play with the iOS hard silent switch set to silent. When 'obey', audio will toggle with the switch. When not specified, will inherit audio settings as usual. 
-            progressUpdateInterval={250.0}          // [iOS] Interval to fire onProgress (default to ~250ms) 
-            onLoadStart={this.loadStart}            // Callback when video starts to load 
-            onLoad={this.setDuration}               // Callback when video loads 
-            onProgress={this.setTime}               // Callback every ~250ms with currentTime 
-            onEnd={this.onEnd.bind(this)}                      // Callback when playback finishes 
-            onError={this.videoError.bind(this)}               // Callback when video cannot be loaded 
-            onBuffer={this.onBuffer}                // Callback when remote video is buffering 
-            onTimedMetadata={this.onTimedMetadata}  // Callback when the stream receive some metadata 
-            style={styles.video} /> :
-          null
+        {
+          currentFileType == "VIDEO" || !currentUrl ?
+            <Video source={currentUrl ? { uri: currentUrl } : require('./video/1.mp4')}
+              ref={(ref) => {
+                this.player = ref
+              }}                                      // Store reference 
+              rate={1.0}                              // 0 is paused, 1 is normal. 
+              volume={1.0}                            // 0 is muted, 1 is normal. 
+              muted={false}                           // Mutes the audio entirely. 
+              paused={paused}                          // Pauses playback entirely. 
+              resizeMode="contain"                      // Fill the whole screen at aspect ratio.*
+              repeat={false}                           // Repeat forever. 
+              playInBackground={false}                // Audio continues to play when app entering background. 
+              playWhenInactive={false}                // [iOS] Video continues to play when control or notification center are shown. 
+              ignoreSilentSwitch={"ignore"}           // [iOS] ignore | obey - When 'ignore', audio will still play with the iOS hard silent switch set to silent. When 'obey', audio will toggle with the switch. When not specified, will inherit audio settings as usual. 
+              progressUpdateInterval={250.0}          // [iOS] Interval to fire onProgress (default to ~250ms) 
+              onLoadStart={this.loadStart}            // Callback when video starts to load 
+              onLoad={this.setDuration}               // Callback when video loads 
+              onProgress={this.setTime}               // Callback every ~250ms with currentTime 
+              onEnd={this.onEnd.bind(this)}                      // Callback when playback finishes 
+              onError={this.videoError.bind(this)}               // Callback when video cannot be loaded 
+              onBuffer={this.onBuffer}                // Callback when remote video is buffering 
+              onTimedMetadata={this.onTimedMetadata}  // Callback when the stream receive some metadata 
+              style={styles.video} /> :
+            null
         }
-        {currentFileType == "IMAGE" ?
-          < Image style={styles.video} resizeMode="contain"
-            source={currentUrl ? { uri: currentUrl } : require('./video/1.mp4')}></Image> :
-          null
+        {
+          currentFileType == "IMAGE" ?
+            < Image style={styles.video} resizeMode="contain"
+              source={currentUrl ? { uri: currentUrl } : require('./video/1.mp4')}></Image> :
+            null
         }
-
-
         {
           // this.renderPlayer(currentUrl)
         }
@@ -529,53 +546,6 @@ export default class App extends Component {
     const objSource = { uri: 'http://' + currentUrl };
     if (currentUrl != currentPlayingUrl) {
       this.player.setNativeProps({ source: objSource });
-    }
-  }
-
-  onValueChange(value) {
-    AsyncStorage.setItem('@LCD', value);
-    if (interval) {
-      window.clearInterval(interval);
-    }
-    if (subInterVal) {
-      window.clearInterval(subInterVal);
-    }
-    this.setState({
-      lcd: value,
-      loadding: true
-    });
-    let req = { request: { topic: value, clientId: clientId } };
-    if (!mqttClient) {
-      this.createClient(value);
-    }
-    else {
-      mqttClient.subscribe('tcp/incoming/' + value, 2);
-      mqttClient.publish('tcp/outgoing/request', JSON.stringify(req), 2, false);
-    }
-
-    //this.createClient(value);
-  }
-
-  onSegmentChange(value) {
-    AsyncStorage.setItem('@SEGMENT', value.toString());
-    if (interval) {
-      window.clearInterval(interval);
-    }
-    if (subInterVal) {
-      window.clearInterval(subInterVal);
-    }
-    this.setState({
-      segment: value,
-      loadding: true
-    });
-
-    let req = { request: { topic: this.state.lcd, segment: value, clientId: clientId } };
-    if (!mqttClient) {
-      this.createClient(value);
-    }
-    else {
-      mqttClient.subscribe('tcp/incoming/' + value, 2);
-      mqttClient.publish('tcp/outgoing/request', JSON.stringify(req), 2, false);
     }
   }
 

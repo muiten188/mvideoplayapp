@@ -35,7 +35,7 @@ export default class extends Component {
     }
 
     async getAppState() {
-        let self=this;
+        let self = this;
         AsyncStorage.multiGet(['@settingsApp'], (err, values) => {
             let settingsApp = {};
             if (values.length > 0) {
@@ -76,7 +76,7 @@ export default class extends Component {
     }
 
     render() {
-        const { show, onOK } = this.props;
+        const { show, onOK, onCancel } = this.props;
         return (
             <Modal isVisible={show} style={styles.modal}>
                 <View style={styles.modalContainer}>
@@ -89,6 +89,7 @@ export default class extends Component {
                         <H3 style={{}}>
                             Cài đặt
                         </H3>
+
                     </View>
                     <View style={{ width: '100%', flex: 1, backgroundColor: '#f6f8fa', alignItems: 'center' }}>
                         {/* <Item style={{ borderBottomWidth: 0 }}> */}
@@ -117,12 +118,12 @@ export default class extends Component {
                                 onChangeText={(imei) => this.setState({ imei: imei })}
                                 value={this.state.imei} />
                         </Item>
-                        <Item floatingLabel style={{ marginTop: 6 }}>
+                        {/* <Item floatingLabel style={{ marginTop: 6 }}>
                             <Label style={{ paddingTop: 0, marginBottom: 22 }}>Server: </Label>
                             <Input style={{ minWidth: 250 }}
                                 onChangeText={(server) => this.setState({ server: server })}
                                 value={this.state.server} />
-                        </Item>
+                        </Item> */}
                         <Item floatingLabel style={{ marginTop: 6 }}>
                             <Label style={{ paddingTop: 0, marginBottom: 22 }}>Mqtt Server: </Label>
                             <Input style={{ minWidth: 250 }}
@@ -133,7 +134,10 @@ export default class extends Component {
                     <Footer style={styles.Footer}>
                         <Item style={styles.border_bottomNone}>
                             <Button onPress={() => { onOK(this.state) }} style={styles.buttonCancel}>
-                                <Text style={[styles.textSize, styles.textOk]}>OK</Text>
+                                <Text style={[styles.textSize, styles.textOk]}>Đồng ý</Text>
+                            </Button>
+                            <Button onPress={() => { onCancel() }} style={[styles.buttonCancel, { marginLeft: 6 }]}>
+                                <Text style={[styles.textSize, styles.textOk]}>Hủy bỏ</Text>
                             </Button>
                         </Item>
                     </Footer>
