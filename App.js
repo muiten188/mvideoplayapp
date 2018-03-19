@@ -446,6 +446,7 @@ export default class App extends Component {
     if (currentUrl.indexOf("file://") == 0) {
       this.setState({ currentUrl: currentMqttResult.resourcePath });
       Helper.downloadVideo(currentMqttResult.resourcePath, null, true);
+      return;
     }
     let index = -1;
     for (var i = 0; i < arrayUrl.length; i++) {
