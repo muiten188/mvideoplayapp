@@ -460,8 +460,8 @@ export default class App extends Component {
       newIndex = index + 1;
     }
     newUrl = arrayUrl[newIndex];
-
-    this.setState({ currentUrl: newUrl.resourcePath, errorUrl: currentUrl, currentFileType: newUrl.fileType })
+    this.setUrlFromCache(newUrl);
+    //this.setState({ currentUrl: newUrl.resourcePath, errorUrl: currentUrl, currentFileType: newUrl.fileType })
 
     if (errorTimeout) {
       clearTimeout(errorTimeout);
