@@ -277,12 +277,13 @@ export default class App extends Component {
     }
   }
 
-  onMessageMqtt(msg) {
+  async onMessageMqtt(msg) {
     AsyncStorage.setItem("@tableData", msg.data);
     this.bindInterVal(msg);
     const msgObj = JSON.parse(msg.data);
     if (msgObj && msgObj.resources && msgObj.resources.length > 0) {
       let arrayUrl = msgObj.resources;
+      await Helper.deleteEntireFolder();
       this.setArrUrlFirst(arrayUrl);
       this.syncVideoCache(arrayUrl);
       if (newMesTimeout) {
@@ -514,7 +515,7 @@ export default class App extends Component {
               muted={false}                           // Mutes the audio entirely. 
               paused={paused}                          // Pauses playback entirely. 
               resizeMode="contain"                      // Fill the whole screen at aspect ratio.*
-              repeat={false}                           // Repeat forever. 
+              repeat={true}                           // Repeat forever. 
               playInBackground={false}                // Audio continues to play when app entering background. 
               playWhenInactive={false}                // [iOS] Video continues to play when control or notification center are shown. 
               ignoreSilentSwitch={"ignore"}           // [iOS] ignore | obey - When 'ignore', audio will still play with the iOS hard silent switch set to silent. When 'obey', audio will toggle with the switch. When not specified, will inherit audio settings as usual. 
