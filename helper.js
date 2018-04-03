@@ -103,12 +103,39 @@ export function getIMEI() {
 }
 
 
-export async function deleteEntireFolder(path) {
+export async function deleteEntireFolder(path, arrayUrl) {
     let _path = path;
     if (!path) {
         _path = baseDir + "m_videoplay";
     }
-    console.log("deleting: " + _path);
-    await fs.unlink(_path)
-    await fs.mkdir(baseDir + "m_videoplay");
+    fs.ls(_path) // On Android, use "fs.DocumentDirectoryPath" (MainBundlePath is not defined)
+        .then((result) => {
+            if (result && result.length > 0 && arrayUrl && arrayUrl.length > 0) {
+                for (var i = 0; i < result.length; i++) {
+                    var file = _getFileNameByPath(result[i]);
+                    if (checkFileInArrayUrl(arrayUrl, file) == false) {
+                        deleteFile(baseDir + "m_videoplay" + "/" + result[i]);
+                        console.log("deleting: " + result[i]);
+                    }
+                }
+            }
+            // stat the first file
+            //return Promise.all([fs.stat(result[0].path), result[0].path]);
+        })
+        .catch((err) => {
+            console.log(err.message, err.code);
+        });
+
+    //await fs.unlink(_path)
+    //await fs.mkdir(baseDir + "m_videoplay");
+}
+
+function checkFileInArrayUrl(arrayUrl, localFileName) {
+    for (var i = 0; i < arrayUrl.length; i++) {
+        var file = _getFileNameByPath(arrayUrl[i].resourcePath);
+        if (localFileName == file) {
+            return true;
+        }
+    }
+    return false;
 }

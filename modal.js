@@ -26,7 +26,7 @@ export default class extends Component {
             deviceName: "ANDROID_BOX Mix5",
             imei: Helper.getIMEI(),
             server: '10.168.85.20:8080',
-            mqttServer: '113.171.23.140:1883'
+            mqttServer: '113.171.23.202:1883'
         }
     }
 

@@ -16,7 +16,8 @@ import {
   AsyncStorage,
   Alert,
   StatusBar,
-  Image
+  Image,
+  WebView
 } from 'react-native';
 //import Icon from 'react-native-vector-icons/EvilIcons';
 import { Picker, Item, Label, Spinner, Badge, Button } from 'native-base';
@@ -283,13 +284,16 @@ export default class App extends Component {
     const msgObj = JSON.parse(msg.data);
     if (msgObj && msgObj.resources && msgObj.resources.length > 0) {
       let arrayUrl = msgObj.resources;
-      await Helper.deleteEntireFolder();
+      console.log("nhận mes:")
+      console.log(arrayUrl);
       this.setArrUrlFirst(arrayUrl);
       this.syncVideoCache(arrayUrl);
       if (newMesTimeout) {
         clearTimeout(newMesTimeout);
       }
+      Helper.deleteEntireFolder(null, arrayUrl);
       newMesTimeout = setTimeout(() => {
+
         this.setState({
           newMessage: false
         })
@@ -320,12 +324,14 @@ export default class App extends Component {
     try {
       let isExitsCache = await Helper.checkVideoCacheExits(url.resourcePath);
       let urlSource = null;
-      if (isExitsCache) {
+      if (isExitsCache && this.state.newMessage == false) {
         urlSource = Helper.getLinkVideoCacheExits(url.resourcePath);
       }
       else {
-        urlSource = url;
-        sync1VideoCache(url);
+        urlSource = url.resourcePath;
+        // if (this.state.newMessage == false) {
+        //   sync1VideoCache(url);
+        // }
       }
       this.setState({
         currentUrl: urlSource,
@@ -475,7 +481,7 @@ export default class App extends Component {
     }, 6000);
   }
   render() {
-    const { newMessage, arrLCD, modalShow, currentUrl, errorUrl, currentFileType, appError } = this.state;
+    const { newMessage, arrLCD, modalShow, currentUrl, errorUrl, currentFileType, appError, arrayUrl } = this.state;
     let paused = false;
     let temcurrentUrl = currentUrl;
     // if (currentUrl != currentPlayingUrl) {
@@ -488,17 +494,17 @@ export default class App extends Component {
     if (currentFileType == "IMAGE") {
       imageTimeOut = setTimeout(() => {
         this.onEnd();
-      }, 10000);
+      }, 15000);
     }
     return (
       <View style={{ flex: 1, backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center' }}>
         <StatusBar hidden={true} />
-        <Button onPress={() => { this.setState({ modalShow: true }) }} style={{ position: 'absolute', top: 5, right: 5, opacity: 0.7, zIndex: 99999, backgroundColor: "transparent" }}>
-          <Image
+        {/* <Button onPress={() => { this.setState({ modalShow: true }) }} style={{ position: 'absolute', width: 30, height: 30, top: 5, right: 5, opacity: 0.7, zIndex: 99999, backgroundColor: "transparent" }}>
+          { <Image
             style={{ width: 24, height: 24 }}
             source={require('./images/setting.png')}
-          />
-        </Button>
+          /> }
+        </Button> */}
         <ModalLcd show={modalShow} onOK={this.onModalOk.bind(this)} onCancel={() => { this.setState({ modalShow: false }) }}></ModalLcd>
         <MyDate style={{ position: "absolute", top: 15, left: 35, zIndex: 99999 }}></MyDate>
         <Text style={{ position: "absolute", bottom: 25, left: 5, color: "#fff", fontSize: 18, zIndex: 99999 }}>{appError || true ? appError : ""}</Text>
@@ -515,7 +521,7 @@ export default class App extends Component {
               muted={false}                           // Mutes the audio entirely. 
               paused={paused}                          // Pauses playback entirely. 
               resizeMode="contain"                      // Fill the whole screen at aspect ratio.*
-              repeat={true}                           // Repeat forever. 
+              repeat={(arrayUrl && arrayUrl.length > 1) ? false : true}                           // Repeat forever. 
               playInBackground={false}                // Audio continues to play when app entering background. 
               playWhenInactive={false}                // [iOS] Video continues to play when control or notification center are shown. 
               ignoreSilentSwitch={"ignore"}           // [iOS] ignore | obey - When 'ignore', audio will still play with the iOS hard silent switch set to silent. When 'obey', audio will toggle with the switch. When not specified, will inherit audio settings as usual. 
@@ -533,14 +539,24 @@ export default class App extends Component {
         {
           currentFileType == "IMAGE" ?
             < Image style={styles.video} resizeMode="contain"
-              source={currentUrl ? { uri: currentUrl } : require('./video/1.mp4')}></Image> :
+              source={currentUrl ? { uri: currentUrl } : require('./images/bach.jpg')}></Image> :
             null
         }
-        {
-          // this.renderPlayer(currentUrl)
-        }
+        {currentFileType == "HTML" ?
+          <View style={{ width: '100%', height: '100%', backgroundColor: 'red' }}>
+            <WebView
+              source={currentUrl ? { uri: currentUrl } : { uri: 'https://www.facebook.com/' }}
+              javaScriptEnabled={true}
+              domStorageEnabled={true}
+              //userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Safari/537.36"
+              startInLoadingState={true}
+              style={{ flex: 1 }}
+            />
+          </View> : null}
+
         <KeepAwake />
-      </View >
+
+      </View>
     )
   }
 
