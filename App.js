@@ -182,7 +182,8 @@ export default class App extends Component {
     this.setState({ appError: "Đang kết nối đến server..." })
     mqtt.createClient({
       uri: `tcp://${mqttServer}`,
-      clientId: 'tcp/incoming/' + topic + "/" + clientId
+      clientId: clientId,
+      keepalive:60
     }).then((client) => {
       mqttClient = client;
       client.on('closed', (msg) => {
@@ -230,7 +231,8 @@ export default class App extends Component {
     clientId = guid();
     mqtt.createClient({
       uri: `tcp://${mqttServer}`,
-      clientId: 'tcp/incoming/' + topic + "/" + clientId
+      clientId: clientId,
+      keepalive:60
     }).then((client) => {
       mqttClient = client;
       client.on('closed', () => {
