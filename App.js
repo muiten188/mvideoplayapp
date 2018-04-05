@@ -183,7 +183,7 @@ export default class App extends Component {
     mqtt.createClient({
       uri: `tcp://${mqttServer}`,
       clientId: clientId,
-      keepalive:60
+      keepalive: 60
     }).then((client) => {
       mqttClient = client;
       client.on('closed', (msg) => {
@@ -232,7 +232,7 @@ export default class App extends Component {
     mqtt.createClient({
       uri: `tcp://${mqttServer}`,
       clientId: clientId,
-      keepalive:60
+      keepalive: 60
     }).then((client) => {
       mqttClient = client;
       client.on('closed', () => {
@@ -290,16 +290,8 @@ export default class App extends Component {
       console.log(arrayUrl);
       this.setArrUrlFirst(arrayUrl);
       this.syncVideoCache(arrayUrl);
-      if (newMesTimeout) {
-        clearTimeout(newMesTimeout);
-      }
+      
       Helper.deleteEntireFolder(null, arrayUrl);
-      newMesTimeout = setTimeout(() => {
-
-        this.setState({
-          newMessage: false
-        })
-      }, 13000);
     }
   }
 
@@ -320,6 +312,14 @@ export default class App extends Component {
       currentMqttResult: arrayUrl[0],
       currentUrl: urlSource, currentFileType: arrayUrl[0].fileType
     })
+    if (newMesTimeout) {
+      clearTimeout(newMesTimeout);
+    }
+    newMesTimeout = setTimeout(() => {
+      this.setState({
+        newMessage: false
+      })
+    }, 13000);
   }
 
   async setUrlFromCache(url) {
@@ -483,7 +483,7 @@ export default class App extends Component {
     }, 6000);
   }
   render() {
-    const { newMessage, arrLCD, modalShow, currentUrl, errorUrl, currentFileType, appError, arrayUrl } = this.state;
+    const { newMessage, arrLCD, modalShow, currentUrl, errorUrl, currentFileType, appError, arrayUrl, currentMqttResult } = this.state;
     let paused = false;
     let temcurrentUrl = currentUrl;
     // if (currentUrl != currentPlayingUrl) {
@@ -493,10 +493,12 @@ export default class App extends Component {
     if (imageTimeOut) {
       clearTimeout(imageTimeOut);
     }
-    if (currentFileType == "IMAGE") {
+    if (currentFileType == "IMAGE" || currentFileType == "HTML") {
+      let timeout = 15000;
+      timeout = currentMqttResult.timeNavigate ? currentMqttResult.timeNavigate * 1000 : timeout;
       imageTimeOut = setTimeout(() => {
         this.onEnd();
-      }, 15000);
+      }, timeout);
     }
     return (
       <View style={{ flex: 1, backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center' }}>
@@ -509,7 +511,7 @@ export default class App extends Component {
         </Button> */}
         <ModalLcd show={modalShow} onOK={this.onModalOk.bind(this)} onCancel={() => { this.setState({ modalShow: false }) }}></ModalLcd>
         <MyDate style={{ position: "absolute", top: 15, left: 35, zIndex: 99999 }}></MyDate>
-        <Text style={{ position: "absolute", bottom: 25, left: 5, color: "#fff", fontSize: 18, zIndex: 99999 }}>{appError || true ? appError : ""}</Text>
+        <Text style={{ position: "absolute", bottom: 25, left: 5, color: "#fff", fontSize: 18, zIndex: 99999 }}>{appError ? appError : ""}</Text>
         {/* <Text style={{ position: "absolute", bottom: 5, left: 5, color: "#fff", fontSize: 18, zIndex: 99999 }}>{errorUrl ? ("video lỗi: " + errorUrl.replace(/^.*[\\\/]/, '')) : ""}</Text> */}
         <Text style={{ position: "absolute", bottom: 5, right: 5, color: "#fff", fontSize: 18, zIndex: 99999 }}>{newMessage ? "Đang cập nhật dữ liệu mới..." : ""}</Text>
         {
