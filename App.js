@@ -290,7 +290,7 @@ export default class App extends Component {
       console.log(arrayUrl);
       this.setArrUrlFirst(arrayUrl);
       this.syncVideoCache(arrayUrl);
-      
+
       Helper.deleteEntireFolder(null, arrayUrl);
     }
   }
@@ -308,7 +308,8 @@ export default class App extends Component {
     }
     //urlSource = arrayUrl[0].resourcePath;
     this.setState({
-      arrayUrl: arrayUrl, newMessage: (fromLocal ? false : true),
+      arrayUrl: arrayUrl,
+      newMessage: (fromLocal ? false : true),
       currentMqttResult: arrayUrl[0],
       currentUrl: urlSource, currentFileType: arrayUrl[0].fileType
     })
@@ -319,7 +320,7 @@ export default class App extends Component {
       this.setState({
         newMessage: false
       })
-    }, 13000);
+    }, 15000);
   }
 
   async setUrlFromCache(url) {
@@ -336,6 +337,7 @@ export default class App extends Component {
         // }
       }
       this.setState({
+        newMessage: false,
         currentUrl: urlSource,
         currentMqttResult: url,
         currentFileType: url.fileType
@@ -348,14 +350,20 @@ export default class App extends Component {
   }
 
   sync1VideoCache(url) {
-    Helper.downloadVideo(url.resourcePath);
+    if (url.fileType != "HTML") {
+      Helper.downloadVideo(url.resourcePath);
+    }
   }
 
   async syncVideoCache(arrUrl) {
-    Helper.downloadVideo(arrUrl[0].resourcePath);
+    if (arrUrl[0].fileType != "HTML") {
+      Helper.downloadVideo(arrUrl[0].resourcePath);
+    }
     for (var i = 0; i < arrUrl.length; i++) {
       let url = arrUrl[i];
-      Helper.downloadVideo(url.resourcePath, null);
+      if (url.fileType != "HTML") {
+        Helper.downloadVideo(url.resourcePath, null);
+      }
     }
   }
 
@@ -454,7 +462,9 @@ export default class App extends Component {
     console.log("error video")
     if (currentUrl.indexOf("file://") == 0) {
       this.setState({ currentUrl: currentMqttResult.resourcePath });
-      Helper.downloadVideo(currentMqttResult.resourcePath, null, true);
+      if (currentMqttResult.fileType != "HTML") {
+        Helper.downloadVideo(currentMqttResult.resourcePath, null, true);
+      }
       return;
     }
     let index = -1;
