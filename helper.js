@@ -16,11 +16,13 @@ if (checkExits(baseDir + "m_videoplay") == false) {
 //Function to download a file..
 
 function _getFileNameByPath(path) {
-
     return path.replace(/^.*[\\\/]/, '');
 }
 
 export async function downloadVideo(fromUrl, toFile, forceDowload) {
+    if(!fromUrl){
+        return;
+    }
     let _toFile = toFile;
     if (!toFile) {
         _toFile = baseDir + "m_videoplay" + "/" + _getFileNameByPath(fromUrl);

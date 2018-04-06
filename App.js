@@ -177,8 +177,8 @@ export default class App extends Component {
 
   createClient(topic, mqttServer, deviceName) {
     /* create mqtt client */
+    let _deviceName = deviceName ? deviceName : this.modalLCd.state.deviceName;
     clientId = guid();
-
     this.setState({ appError: "Đang kết nối đến server..." })
     mqtt.createClient({
       uri: `tcp://${mqttServer}`,
@@ -193,7 +193,7 @@ export default class App extends Component {
 
         if (!connectInterval) {
           connectInterval = setInterval(() => {
-            this.reconnect(topic, mqttServer, deviceName);
+            this.reconnect(topic, mqttServer, _deviceName);
           }, 30000)
         }
       });
@@ -201,12 +201,12 @@ export default class App extends Component {
         this.setState({ appError: "Lỗi: kết nối đến server thất bại." })
         if (!connectInterval) {
           connectInterval = setInterval(() => {
-            this.reconnect(topic, mqttServer, deviceName);
+            this.reconnect(topic, mqttServer, _deviceName);
           }, 30000)
         }
       });
       client.on('message', this.onMessageMqtt.bind(this));
-      let req = { request: { imei: Helper.getIMEI(), clientId: clientId, deviceName: deviceName } };
+      let req = { request: { imei: Helper.getIMEI(), clientId: clientId, deviceName: _deviceName } };
       client.on('connect', (msg) => {
         this.setState({ appError: null })
         if (connectInterval) {
@@ -222,7 +222,7 @@ export default class App extends Component {
         clearInterval(connectInterval);
       }
       connectInterval = setInterval(() => {
-        this.reconnect(topic, mqttServer, deviceName);
+        this.reconnect(topic, mqttServer, _deviceName);
       }, 30000)
     });
   }
@@ -289,7 +289,7 @@ export default class App extends Component {
       console.log("nhận mes:")
       console.log(arrayUrl);
       this.setArrUrlFirst(arrayUrl);
-      this.syncVideoCache(arrayUrl);
+      //this.syncVideoCache(arrayUrl);
 
       Helper.deleteEntireFolder(null, arrayUrl);
     }
@@ -305,6 +305,9 @@ export default class App extends Component {
     }
     else {
       urlSource = arrayUrl[0].resourcePath;
+      setTimeout(() => {
+        this.sync1VideoCache(arrayUrl[0]);
+      }, 1000);
     }
     //urlSource = arrayUrl[0].resourcePath;
     this.setState({
@@ -332,9 +335,9 @@ export default class App extends Component {
       }
       else {
         urlSource = url.resourcePath;
-        // if (this.state.newMessage == false) {
-        //   sync1VideoCache(url);
-        // }
+        setTimeout(() => {
+          this.sync1VideoCache(url);
+        }, 1000);
       }
       this.setState({
         newMessage: false,
@@ -355,17 +358,17 @@ export default class App extends Component {
     }
   }
 
-  async syncVideoCache(arrUrl) {
-    if (arrUrl[0].fileType != "HTML") {
-      Helper.downloadVideo(arrUrl[0].resourcePath);
-    }
-    for (var i = 0; i < arrUrl.length; i++) {
-      let url = arrUrl[i];
-      if (url.fileType != "HTML") {
-        Helper.downloadVideo(url.resourcePath, null);
-      }
-    }
-  }
+  // async syncVideoCache(arrUrl) {
+  //   if (arrUrl[0].fileType != "HTML") {
+  //     Helper.downloadVideo(arrUrl[0].resourcePath);
+  //   }
+  //   for (var i = 0; i < arrUrl.length; i++) {
+  //     let url = arrUrl[i];
+  //     if (url.fileType != "HTML") {
+  //       Helper.downloadVideo(url.resourcePath, null);
+  //     }
+  //   }
+  // }
 
   syncDeleteVideoCache() {
 
@@ -433,7 +436,6 @@ export default class App extends Component {
     }).then((resJson) => {
 
     }).catch((error) => {
-      debugger;
       this.setState({ appError: 'Lưu thông tin server thất bại' })
     })
   }
@@ -519,7 +521,10 @@ export default class App extends Component {
             source={require('./images/setting.png')}
           /> }
         </Button> */}
-        <ModalLcd show={modalShow} onOK={this.onModalOk.bind(this)} onCancel={() => { this.setState({ modalShow: false }) }}></ModalLcd>
+        <ModalLcd ref={(ref) => {
+          this.modalLCd = ref
+        }}
+          show={modalShow} onOK={this.onModalOk.bind(this)} onCancel={() => { this.setState({ modalShow: false }) }}></ModalLcd>
         <MyDate style={{ position: "absolute", top: 15, left: 35, zIndex: 99999 }}></MyDate>
         <Text style={{ position: "absolute", bottom: 25, left: 5, color: "#fff", fontSize: 18, zIndex: 99999 }}>{appError ? appError : ""}</Text>
         {/* <Text style={{ position: "absolute", bottom: 5, left: 5, color: "#fff", fontSize: 18, zIndex: 99999 }}>{errorUrl ? ("video lỗi: " + errorUrl.replace(/^.*[\\\/]/, '')) : ""}</Text> */}
