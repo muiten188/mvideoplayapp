@@ -161,7 +161,7 @@ export default class App extends Component {
         });
         if (settingsApp) {
           this.setState({ mqttServer: settingsApp.mqttServer, server: settingsApp.server })
-          this.createClient(Helper.getIMEI(), settingsApp.mqttServer);
+          this.createClient(Helper.getSerialNumber(), settingsApp.mqttServer);
         }
         else {
           this.setState({ modalShow: true });
@@ -206,7 +206,7 @@ export default class App extends Component {
         }
       });
       client.on('message', this.onMessageMqtt.bind(this));
-      let req = { request: { imei: Helper.getIMEI(), clientId: clientId, deviceName: _deviceName } };
+      let req = { request: { imei: Helper.getSerialNumber(), clientId: clientId, deviceName: _deviceName } };
       client.on('connect', (msg) => {
         this.setState({ appError: null })
         if (connectInterval) {
@@ -242,7 +242,7 @@ export default class App extends Component {
         this.setState({ appError: "Lỗi: kết nối đến server thất bại." })
       });
       client.on('message', this.onMessageMqtt.bind(this));
-      let req = { request: { imei: Helper.getIMEI(), clientId: clientId, deviceName: deviceName } };
+      let req = { request: { imei: Helper.getSerialNumber(), clientId: clientId, deviceName: deviceName } };
       client.on('connect', () => {
         this.setState({ appError: null })
         if (connectInterval) {
@@ -401,11 +401,11 @@ export default class App extends Component {
       if (mqttClient) {
         mqttClient.disconnect();
       }
-      this.createClient(Helper.getIMEI(), state.mqttServer, state.deviceName);
+      this.createClient(Helper.getSerialNumber(), state.mqttServer, state.deviceName);
       // }
       // else {
-      //   let req = { request: { imei: Helper.getIMEI(), clientId: clientId } };
-      //   mqttClient.subscribe('tcp/incoming/' + Helper.getIMEI(), 2);
+      //   let req = { request: { imei: Helper.(), clientId: clientId } };
+      //   mqttClient.subscribe('tcp/incoming/' + Helper.getSerialNumber(), 2);
       //   mqttClient.publish('tcp/outgoing/request', JSON.stringify(req), 2, false);
       // }
     }

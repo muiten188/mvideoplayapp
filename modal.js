@@ -24,7 +24,7 @@ export default class extends Component {
             arrLCD: [],
             loadding: false,
             deviceName: "ANDROID_BOX Mix5",
-            imei: Helper.getIMEI(),
+            imei: Helper.getSerialNumber(),
             server: '10.168.85.20:8080',
             mqttServer: '113.171.23.202:1883'
         }
@@ -112,7 +112,7 @@ export default class extends Component {
                                 value={this.state.deviceName} />
                         </Item>
                         <Item floatingLabel style={{ marginTop: 6 }}>
-                            <Label style={{ paddingTop: 0, marginBottom: 22 }}>IMEI: </Label>
+                            <Label style={{ paddingTop: 0, marginBottom: 22 }}>Serial Number: </Label>
                             <Input style={{ minWidth: 250 }}
                                 disabled
                                 onChangeText={(imei) => this.setState({ imei: imei })}

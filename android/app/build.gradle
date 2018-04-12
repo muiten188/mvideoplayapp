@@ -148,6 +148,7 @@ android {
 }
 
 dependencies {
+    compile project(':react-native-device-info')
     compile project(':react-native-imei')
     compile project(':react-native-fetch-blob')
     compile project(':react-native-keep-awake')
