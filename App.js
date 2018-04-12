@@ -462,7 +462,7 @@ export default class App extends Component {
   videoError(e, b, c, d) {
     const { currentUrl, arrayUrl, currentMqttResult } = this.state;
     console.log("error video")
-    if (currentUrl.indexOf("file://") == 0) {
+    if (currentUrl && currentUrl.indexOf("file://") == 0) {
       this.setState({ currentUrl: currentMqttResult.resourcePath });
       if (currentMqttResult.fileType != "HTML") {
         Helper.downloadVideo(currentMqttResult.resourcePath, null, true);
