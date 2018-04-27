@@ -60,6 +60,6 @@ const styles = StyleSheet.create({
     },
     dateText: {
         color: '#ccc',
-        fontSize: 35
+        fontSize: 23
     }
 });

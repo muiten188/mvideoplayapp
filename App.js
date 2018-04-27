@@ -43,6 +43,7 @@ const newMesTimeout = null;
 const errorTimeout = null;
 const imageTimeOut = null;
 const connectInterval = null;
+const timeOutSetUrl = null;
 function guid() {
   function s4() {
     return Math.floor((1 + Math.random()) * 0x10000)
@@ -281,18 +282,24 @@ export default class App extends Component {
   }
 
   async onMessageMqtt(msg) {
-    AsyncStorage.setItem("@tableData", msg.data);
-    this.bindInterVal(msg);
-    const msgObj = JSON.parse(msg.data);
-    if (msgObj && msgObj.resources && msgObj.resources.length > 0) {
-      let arrayUrl = msgObj.resources;
-      console.log("nhận mes:")
-      console.log(arrayUrl);
-      this.setArrUrlFirst(arrayUrl);
-      //this.syncVideoCache(arrayUrl);
-
-      Helper.deleteEntireFolder(null, arrayUrl);
+    if (timeOutSetUrl) {
+      clearTimeout(timeOutSetUrl);
     }
+    timeOutSetUrl = setTimeout(() => {
+      AsyncStorage.setItem("@tableData", msg.data);
+      this.bindInterVal(msg);
+      const msgObj = JSON.parse(msg.data);
+      if (msgObj && msgObj.resources && msgObj.resources.length > 0) {
+        let arrayUrl = msgObj.resources;
+        console.log("nhận mes:")
+        console.log(arrayUrl);
+        this.setArrUrlFirst(arrayUrl);
+        //this.syncVideoCache(arrayUrl);
+
+        Helper.deleteEntireFolder(null, arrayUrl);
+      }
+    }, 5000);
+
   }
 
   async setArrUrlFirst(arrayUrl, fromLocal) {
@@ -462,6 +469,10 @@ export default class App extends Component {
   videoError(e, b, c, d) {
     const { currentUrl, arrayUrl, currentMqttResult } = this.state;
     console.log("error video")
+    if (arrayUrl && arrayUrl.length == 1 && currentUrl) {
+      this.setState({ currentUrl: null, arrayUrl: [], currentMqttResult: null, currentFileType: 'VIDEO' })
+      return;
+    }
     if (currentUrl && currentUrl.indexOf("file://") == 0) {
       this.setState({ currentUrl: currentMqttResult.resourcePath });
       if (currentMqttResult.fileType != "HTML") {
