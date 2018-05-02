@@ -107,7 +107,7 @@ export function getLinkVideoCacheExits(filePath) {
 
 export function getSerialNumber() {
     let serialNumber = DeviceInfo.getSerialNumber();
-    return '1234';
+    return serialNumber;
 }
 
 
