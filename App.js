@@ -287,7 +287,6 @@ export default class App extends Component {
     }
     timeOutSetUrl = setTimeout(() => {
       AsyncStorage.setItem("@tableData", msg.data);
-      this.bindInterVal(msg);
       const msgObj = JSON.parse(msg.data);
       if (msgObj && msgObj.resources && msgObj.resources.length > 0) {
         let arrayUrl = msgObj.resources;
@@ -379,24 +378,6 @@ export default class App extends Component {
 
   syncDeleteVideoCache() {
 
-  }
-
-  bindInterVal(msg) {
-    const msgObj = JSON.parse(msg.data);
-    let tableData = msgObj.data;
-    if (msgObj.clientId != clientId && msgObj.clientId != "all") {
-      return;
-    }
-    if (interval) {
-      window.clearInterval(interval);
-    }
-    if (subInterVal) {
-      window.clearInterval(subInterVal);
-    }
-    for (var i = 0; i < msgObj.resources.length; i++) {
-      let url = msgObj.resources[i];
-      console.log(url);
-    }
   }
 
   onModalOk(state) {
@@ -506,6 +487,7 @@ export default class App extends Component {
     }, 6000);
   }
   render() {
+    debugger;
     const { newMessage, arrLCD, modalShow, currentUrl, errorUrl, currentFileType, appError, arrayUrl, currentMqttResult } = this.state;
     let paused = false;
     let temcurrentUrl = currentUrl;

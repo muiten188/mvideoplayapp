@@ -1,5 +1,5 @@
 const RNFetchBlob = require('react-native-fetch-blob').default;
-const IMEI = require('react-native-imei');
+// const IMEI = require('react-native-imei');
 var DeviceInfo = require('react-native-device-info');
 const {
     fs
@@ -100,14 +100,14 @@ export function getLinkVideoCacheExits(filePath) {
     }
 }
 
-export function getIMEI() {
-    let imei = IMEI.getImei();
-    return imei;
-}
+// export function getIMEI() {
+//     let imei = IMEI.getImei();
+//     return imei;
+// }
 
 export function getSerialNumber() {
     let serialNumber = DeviceInfo.getSerialNumber();
-    return serialNumber;
+    return '1234';
 }
 
 

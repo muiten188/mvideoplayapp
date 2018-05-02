@@ -13,7 +13,7 @@ import com.oblador.vectoricons.VectorIconsPackage;
 import com.corbt.keepawake.KCKeepAwakePackage;
 import com.RNFetchBlob.RNFetchBlobPackage;  
 import com.learnium.RNDeviceInfo.RNDeviceInfo;
-import codes.simen.IMEI.IMEI;
+
 import java.util.Arrays;
 import java.util.List;
 
@@ -34,8 +34,7 @@ public class MainApplication extends Application implements ReactApplication {
             new VectorIconsPackage(),
             new KCKeepAwakePackage(),
             new RNFetchBlobPackage(),
-            new RNDeviceInfo(),
-            new IMEI()
+            new RNDeviceInfo()
       );
     }
 
